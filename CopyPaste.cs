@@ -289,7 +289,7 @@ namespace Oxide.Plugins
 
         //Other methods
 
-        private object CheckCollision(HashSet<Dictionary<string, object>> entities, Vector3 startPos, float radius)
+        private object CheckCollision(ICollection<Dictionary<string, object>> entities, Vector3 startPos, float radius)
         {
             foreach (var entityobj in entities)
             {
@@ -861,7 +861,7 @@ namespace Oxide.Plugins
             return data;
         }
 
-        private object FindBestHeight(HashSet<Dictionary<string, object>> entities, Vector3 startPos)
+        private object FindBestHeight(ICollection<Dictionary<string, object>> entities, Vector3 startPos)
         {
             var maxHeight = 0f;
 
@@ -1662,12 +1662,39 @@ namespace Oxide.Plugins
             }
         }
 
-        private HashSet<Dictionary<string, object>> PreLoadData(List<object> entities, Vector3 startPos,
+        private static int GetEntityTypePastePriority(Dictionary<string, object> entity)
+        {
+            var prefabname = (string) entity["prefabname"];
+
+            if (prefabname.Contains("/building core/"))
+                return 1;
+            if (prefabname.Contains("/building/"))
+                return 2;
+            if (prefabname.Contains("/deployable/"))
+                return 3;
+            return 4;
+        }
+
+        private static int EntitiesComparer(Dictionary<string, object> a, Dictionary<string, object> b)
+        {
+            var aPriority = GetEntityTypePastePriority(a);
+            var bPriority = GetEntityTypePastePriority(b);
+
+            if (aPriority != bPriority)
+                return aPriority - bPriority;
+
+            var aPos = (Vector3) a["position"];
+            var bPos = (Vector3) b["position"];
+
+            return aPos.y > bPos.y ? 1 : aPos.y < bPos.y ? -1 : 0;
+        }
+
+        private ICollection<Dictionary<string, object>> PreLoadData(List<object> entities, Vector3 startPos,
             float rotationCorrection, bool deployables, bool inventories, bool auth, bool vending)
         {
             var eulerRotation = new Vector3(0f, rotationCorrection, 0f);
             var quaternionRotation = Quaternion.EulerRotation(eulerRotation);
-            var preloaddata = new HashSet<Dictionary<string, object>>();
+            var preloaddata = new List<Dictionary<string, object>>();
 
             foreach (var entity in entities)
             {
@@ -1694,6 +1721,8 @@ namespace Oxide.Plugins
 
                 preloaddata.Add(data);
             }
+
+            preloaddata.Sort(EntitiesComparer);
 
             return preloaddata;
         }
